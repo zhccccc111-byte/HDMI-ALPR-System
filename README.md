@@ -1,105 +1,105 @@
 # HDMI-ISP-UDP-FPGA
 
-HDMI video capture, ISP processing, DDR3 frame buffering, and UDP streaming on Pango Logos2 FPGA.
+基于紫光同创 Logos2 FPGA 的 HDMI 视频采集、ISP 图像处理、DDR3 帧缓存、以太网 UDP 推流系统。
 
-## Architecture
+## 系统架构
 
 ```
-HDMI Input (RGB888)
-  -> Gamma Correction (LUT x3)
-  -> Gaussian Filter (3x3 matrix)
-  -> CSC (RGB -> YUV)
-  -> Edge Enhancement (sharpening)
-  -> OCC (YUV -> RGB)
-  -> 3x Downscale (1920x1080 -> 640x360)
-  -> RGB565 Pack
-  -> DDR3 Frame Buffer (write)
-  -> DDR3 Frame Reader
-  -> UDP/IP/MAC/RGMII (Gigabit Ethernet)
+HDMI 输入 (RGB888)
+  -> Gamma 校正 (LUT x3)
+  -> 高斯滤波 (3x3 矩阵)
+  -> 色彩空间转换 CSC (RGB -> YUV)
+  -> 边缘增强 / 锐化
+  -> 色彩空间转换 OCC (YUV -> RGB)
+  -> 3 倍下采样 (1920x1080 -> 640x360)
+  -> RGB565 打包
+  -> DDR3 帧缓存 (写入)
+  -> DDR3 帧读取
+  -> UDP/IP/MAC/RGMII (千兆以太网发送)
 ```
 
-## Target Device
+## 目标器件
 
-- **FPGA**: Pango Logos2 PG2L100H-6 (FBG676)
-- **Toolchain**: Pango Design Suite 2022.2-SP6.4
-- **Top Module**: `hdmi_ddr_eth_top` (`source/rtl/hdmi_ddr_eth_top.v`)
+- **FPGA**: 紫光同创 Logos2 PG2L100H-6 (FBG676)
+- **工具链**: Pango Design Suite 2022.2-SP6.4
+- **顶层模块**: `hdmi_ddr_eth_top` (`source/rtl/hdmi_ddr_eth_top.v`)
 
-## Key Parameters
+## 关键参数
 
-| Parameter | Value |
+| 参数 | 值 |
 |---|---|
-| Image Size | 640 x 360 |
-| Pixel Format | RGB565 |
-| DDR3 Data Width | 32-bit |
-| Local IP | 192.168.1.11 |
-| Local Port | 8080 |
-| Dest IP | 192.168.1.105 |
-| Dest Port | 8080 |
+| 图像分辨率 | 640 x 360 |
+| 像素格式 | RGB565 |
+| DDR3 数据位宽 | 32-bit |
+| 本地 IP | 192.168.1.11 |
+| 本地端口 | 8080 |
+| 目标 IP | 192.168.1.105 |
+| 目标端口 | 8080 |
 
-## Directory Structure
+## 目录结构
 
 ```
 source/
-  rtl/            # Top-level, DDR frame writer/reader, frame buffer
-  eth/            # UDP/IP/MAC/ARP stack, RGMII interface
-  hdmi/           # MS7200/MS7210 HDMI chip I2C configuration
-  img_process/    # Gamma lookup table
-  tools/          # PC-side UDP receiver script (Python)
-  *.v             # ISP modules (gauss, CSC, EE, OCC, downscaler, LCD)
-ipcore/           # IP cores (DDR3 controller, PLL, FIFO)
-sim_prj/          # Simulation project
-matlab/           # MATLAB reference scripts
-*.pds             # Pango Design Suite project file
-*.fdc             # Pin and clock constraints
+  rtl/            # 顶层模块、DDR 帧写入/读取控制器、帧缓冲
+  eth/            # UDP/IP/MAC/ARP 完整协议栈、RGMII 接口
+  hdmi/           # MS7200/MS7210 HDMI 收发芯片 I2C 配置
+  img_process/    # Gamma 查找表
+  tools/          # PC 端 UDP 接收脚本 (Python)
+  *.v             # ISP 模块 (高斯、CSC、EE、OCC、下采样、LCD 驱动)
+ipcore/           # IP 核 (DDR3 控制器、PLL、FIFO)
+sim_prj/          # 仿真工程
+matlab/           # MATLAB 辅助脚本
+*.pds             # Pango Design Suite 工程文件
+*.fdc             # 引脚与约束文件
 ```
 
-## ISP Processing Chain
+## ISP 处理链
 
-All ISP modules run in the `pixclk_in` domain (~148.5 MHz for 1080p input):
+所有 ISP 模块运行在 `pixclk_in` 时钟域（1080p 输入时约 148.5 MHz）：
 
-1. **Gamma** - Per-channel gamma correction via lookup table
-2. **Gaussian** - 3x3 spatial low-pass filter (implemented with matrix_3x3 + line buffer FIFO)
-3. **CSC** - Color space conversion RGB -> YUV
-4. **EE** - Edge enhancement / sharpening in YUV domain
-5. **OCC** - Color space conversion YUV -> RGB
-6. **Downscaler** - 3x bilinear downsample (1920x1080 -> 640x360)
+1. **Gamma** - 逐通道 Gamma 校正（查找表实现）
+2. **高斯滤波** - 3x3 空间低通滤波（matrix_3x3 + 行缓冲 FIFO 实现）
+3. **CSC** - 色彩空间转换 RGB -> YUV
+4. **EE** - YUV 域边缘增强 / 锐化
+5. **OCC** - 色彩空间转换 YUV -> RGB
+6. **下采样** - 3 倍双线性下采样（1920x1080 -> 640x360）
 
-## Clock Domains
+## 时钟域
 
-| Clock | Frequency | Purpose |
+| 时钟 | 频率 | 用途 |
 |---|---|---|
-| sys_clk | 27 MHz | System config, I2C |
-| pixclk_in | ~148.5 MHz | HDMI pixel, ISP chain |
-| ddrphy_sysclk | 200 MHz | DDR3 controller |
-| rgmii_clk_90p | 125 MHz | Gigabit Ethernet RGMII |
+| sys_clk | 27 MHz | 系统配置、I2C |
+| pixclk_in | ~148.5 MHz | HDMI 像素时钟、ISP 全链路 |
+| ddrphy_sysclk | 200 MHz | DDR3 控制器 |
+| rgmii_clk_90p | 125 MHz | 千兆以太网 RGMII |
 
-## UDP Packet Format
+## UDP 数据包格式
 
-Each UDP packet carries one scanline (1286 bytes):
+每个 UDP 包承载一行图像数据（1286 字节）：
 
 ```
-Byte [0..3]  : frame_id (big-endian)
+Byte [0..3]  : frame_id，大端序
 Byte [4..5]  : line_id (0..359)
-Byte [6..1285]: 640 pixels x RGB565 (high byte first)
+Byte [6..1285]: 640 像素 x RGB565，高字节在前
 ```
 
-## PC-Side Receiver
+## PC 端接收
 
 ```bash
 python source/tools/udp_frame_dump.py --bind-ip 0.0.0.0 --port 8080 --width 640 --height 360 --output-dir ./captures
 ```
 
-Receives UDP packets, reassembles frames, converts RGB565 to RGB888, saves as .ppm.
+接收 UDP 数据包，按 frame_id + line_id 重组整帧，RGB565 转 RGB888，保存为 .ppm 图像。
 
-## Timing Status
+## 时序状态
 
-All constraints met. Key WNS margins:
+所有约束均已满足（All Constraints Met），关键时钟域 WNS 余量：
 
 - pixclk_in: +2.1 ns
 - ddrphy_sysclk: +3.3 ns
 - rgmii_clk_90p: +3.1 ns
 
-## Documentation
+## 文档
 
-- [Bringup Guide](source/HDMI_DDR_ETH_bringup.md) - Board-level debugging and setup
-- [Integration Flow](source/HDMI_DDR_ETH_merge_flow.md) - How the design was assembled
+- [上板联调指南](source/HDMI_DDR_ETH_bringup.md) - 板级调试与接线说明
+- [整合流程说明](source/HDMI_DDR_ETH_merge_flow.md) - 工程整合过程记录
