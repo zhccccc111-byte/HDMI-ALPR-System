@@ -38,13 +38,23 @@ ipcore/ddr3_test/sim_lib/
 *.bak_codex
 *_bak_codex
 
-# Build logs
+# Build logs and tool artifacts
 flow.log
+pds.log
+run.log
+*.log
 */generate.log
-stderr.log
+.stderr.log
 stdout.log
 transcript
 */transcript
+multiseed_summary.csv
+
+# IP core generator metadata
+.last_generated
+.settings
+modelsim.ini
+*.bat
 
 # OS files
 Thumbs.db
